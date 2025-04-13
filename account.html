@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Compte - INAZERIAH</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <style>.hidden { display: none; }</style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <nav class="bg-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="index.html" class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-route text-purple-600 text-2xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-900">INAZERIAH</span>
+                    </a>
+                </div>
+                <div class="flex items-center">
+                     <a href="account.html" class="text-gray-900 hover:text-purple-600 inline-flex items-center px-1 pt-1 border-b-2 border-purple-500 text-sm font-medium">Mon Compte</a>
+                     <button id="logout-button-nav" class="ml-4 text-sm font-medium text-red-600 hover:text-red-800">Déconnexion</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-8">Mon Compte</h1>
+
+        <div id="account-content" class="bg-white p-8 rounded-lg shadow space-y-6 hidden">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-800 mb-2">Informations</h2>
+                <p class="text-gray-600">Connecté en tant que : <span id="user-email" class="font-medium"></span></p>
+            </div>
+             <div>
+                 <h2 class="text-xl font-semibold text-gray-800 mb-2">Circuits Sauvegardés (Favoris)</h2>
+                 <p class="text-gray-500 text-sm">Fonctionnalité à venir.</p>
+             </div>
+             <div>
+                 <h2 class="text-xl font-semibold text-gray-800 mb-2">Réglages</h2>
+                 <p class="text-gray-500 text-sm">Changer le mot de passe, etc. (à venir).</p>
+             </div>
+             <div class="border-t pt-6">
+                 <button id="logout-button-page" class="w-full sm:w-auto px-6 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    Se déconnecter
+                </button>
+             </div>
+        </div>
+
+         <div id="loading-content" class="text-center py-12">
+             <p class="text-gray-500">Chargement des informations du compte...</p>
+         </div>
+    </main>
+
+    <script>
+        const SUPABASE_URL = 'https://bnqisduammnieiyoezhj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJucWlzZHVhbW1uaWVpeW9lemhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwNTY5ODgsImV4cCI6MjA1OTYzMjk4OH0.taDSBGg70T3uprXg1MkAI4SokYozTI5al6TpO8uiVPA';
+        let supabase;
+
+        const userEmailDisplay = document.getElementById('user-email');
+        const accountContent = document.getElementById('account-content');
+        const loadingContent = document.getElementById('loading-content');
+        const logoutButtonNav = document.getElementById('logout-button-nav');
+        const logoutButtonPage = document.getElementById('logout-button-page');
+
+        function initializeSupabase() {
+             try {
+                 if (window.supabase && typeof window.supabase.createClient === 'function') {
+                     const { createClient } = window.supabase;
+                     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                     return true;
+                 } else { throw new Error("Supabase library not loaded."); }
+             } catch (e) {
+                 console.error("Supabase initialization failed:", e);
+                 if(loadingContent) loadingContent.innerHTML = '<p class="text-red-600">Erreur critique: Service indisponible.</p>';
+                 return false;
+             }
+         }
+
+        async function handleLogout() {
+            if (!supabase) return;
+            try {
+                const { error } = await supabase.auth.signOut();
+                if (error) throw error;
+                window.location.replace('index.html'); // Utiliser replace pour ne pas garder la page compte dans l'historique
+            } catch (error) {
+                console.error("Logout error:", error.message);
+            }
+        }
+
+         async function loadAccountPage() {
+             const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+             if (sessionError) {
+                 console.error("Error getting session:", sessionError);
+                 window.location.replace('login.html'); // Rediriger si erreur de session
+                 return;
+             }
+
+             if (!session) {
+                 window.location.replace('login.html'); // Rediriger si pas de session
+                 return;
+             }
+
+             if (userEmailDisplay) userEmailDisplay.textContent = session.user.email;
+             if (accountContent) accountContent.classList.remove('hidden');
+             if (loadingContent) loadingContent.classList.add('hidden');
+
+             logoutButtonNav?.addEventListener('click', handleLogout);
+             logoutButtonPage?.addEventListener('click', handleLogout);
+         }
+
+         document.addEventListener('DOMContentLoaded', () => {
+             if (initializeSupabase()) {
+                 loadAccountPage();
+             }
+         });
+    </script>
+</body>
+</html>

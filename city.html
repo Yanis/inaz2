@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circuits à <span id="city-name-title">Ville</span> - INAZERIAH</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+
+    <style>
+        html { scroll-behavior: smooth; }
+        .circuit-card { transition: all 0.3s ease; }
+        .circuit-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .circuit-map { height: 300px; border-radius: 0.5rem; margin-top: 1rem; }
+        .hidden { display: none; }
+        .tag { display: inline-block; background-color: #E9D5FF; color: #5B21B6; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; margin-right: 0.5rem; margin-bottom: 0.5rem; }
+        .leaflet-popup-content-wrapper { border-radius: 0.375rem; }
+        .leaflet-popup-content { margin: 1rem; font-size: 0.875rem; line-height: 1.25rem; }
+        .leaflet-popup-content b { font-weight: 600; color: #374151; display: block; margin-bottom: 0.25rem; }
+    </style>
+</head>
+<body class="font-sans bg-gray-100">
+
+    <nav class="bg-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="index.html" class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-route text-purple-600 text-2xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-900">INAZERIAH</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                     <a href="#" id="back-link" class="text-gray-500 hover:text-gray-900 text-sm font-medium">Autres Villes</a>                     <a href="account.html" id="nav-account-link-city" class="hidden text-gray-500 hover:text-gray-900 text-sm font-medium">Mon Compte</a>
+                     <a href="/login.html" id="nav-login-link-city" class="hidden text-gray-500 hover:text-gray-900 text-sm font-medium">Connexion</a>
+                     <a href="/signup.html" id="nav-signup-link-city" class="hidden inline-flex items-center px-3 py-1.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700">Inscription</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-10 text-center">Circuits à <span id="city-name-header">Ville</span></h1>
+
+        <div id="loading-circuits" class="text-center py-10"><p class="text-gray-500">Chargement des circuits...</p></div>
+        <div id="error-circuits" class="text-center py-10 text-red-600 hidden"><p>Impossible de charger les circuits pour le moment.</p></div>
+
+        <section id="public-circuits-section" class="mb-16 hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Nos Suggestions</h2>
+            <div id="public-circuits-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                </div>
+        </section>
+
+        <section id="saved-circuits-section" class="mb-16 hidden">
+             <h2 class="text-2xl font-bold text-gray-800 mb-6">Mes Circuits Sauvegardés</h2>
+             <div id="saved-circuits-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                 <p class="text-gray-500 col-span-full">Vous n'avez pas encore de circuit sauvegardé pour cette ville.</p>
+             </div>
+        </section>
+
+        <section id="liked-circuits-section" class="mb-16 hidden">
+             <h2 class="text-2xl font-bold text-gray-800 mb-6">Circuits que j'aime</h2>
+             <div id="liked-circuits-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                 <p class="text-gray-500 col-span-full">Vous n'avez pas encore aimé de circuit pour cette ville.</p>
+             </div>
+        </section>
+
+         <section id="propose-circuit-section" class="text-center hidden">
+             <button id="propose-circuit-btn" class="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-purple-600 hover:bg-purple-700">
+                 <i class="fas fa-plus mr-2"></i> Proposer votre propre circuit
+             </button>
+             <p class="mt-4 text-sm text-gray-600">Partagez vos meilleures créations avec la communauté !</p>
+         </section>
+
+    </main>
+
+    <script>
+        const SUPABASE_URL = 'https://bnqisduammnieiyoezhj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJucWlzZHVhbW1uaWVpeW9lemhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwNTY5ODgsImV4cCI6MjA1OTYzMjk4OH0.taDSBGg70T3uprXg1MkAI4SokYozTI5al6TpO8uiVPA';
+        let supabase;
+        let currentUser = null;
+        let currentCityName = '';
+        let circuitMaps = {}; // Pour stocker les instances de carte Leaflet par ID de circuit
+        
+        const backLink = document.getElementById('back-link');
+
+        backLink?.addEventListener('click', (event) => {
+            event.preventDefault(); // Empêche le lien d'aller à #
+            window.history.back(); // Exécute l'action "Retour" du navigateur
+        });
+
+        const cityNameTitle = document.getElementById('city-name-title');
+        const cityNameHeader = document.getElementById('city-name-header');
+        const loadingCircuits = document.getElementById('loading-circuits');
+        const errorCircuits = document.getElementById('error-circuits');
+        const publicCircuitsSection = document.getElementById('public-circuits-section');
+        const publicCircuitsList = document.getElementById('public-circuits-list');
+        const savedCircuitsSection = document.getElementById('saved-circuits-section');
+        const likedCircuitsSection = document.getElementById('liked-circuits-section');
+        const proposeCircuitSection = document.getElementById('propose-circuit-section');
+        const navAccountLinkCity = document.getElementById('nav-account-link-city');
+        const navLoginLinkCity = document.getElementById('nav-login-link-city');
+        const navSignupLinkCity = document.getElementById('nav-signup-link-city');
+
+
+        function initializeSupabase() {
+             try {
+                 if (window.supabase && typeof window.supabase.createClient === 'function') {
+                     const { createClient } = window.supabase;
+                     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                     return true;
+                 } else { throw new Error("Supabase library not loaded."); }
+             } catch (e) { console.error("Supabase initialization failed:", e); return false; }
+         }
+
+        function getCityNameFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            const city = params.get('city');
+            return city ? decodeURIComponent(city) : null;
+        }
+
+        function updateCityPageUI(user) {
+            currentUser = user;
+            const isLoggedIn = !!user;
+            navAccountLinkCity?.classList.toggle('hidden', !isLoggedIn);
+            navLoginLinkCity?.classList.toggle('hidden', isLoggedIn);
+            navSignupLinkCity?.classList.toggle('hidden', isLoggedIn);
+            savedCircuitsSection?.classList.toggle('hidden', !isLoggedIn);
+            likedCircuitsSection?.classList.toggle('hidden', !isLoggedIn);
+            proposeCircuitSection?.classList.toggle('hidden', !isLoggedIn);
+        }
+
+        function createCircuitCardHTML(circuit) {
+            const tagsHTML = (circuit.interest_tags || []).map(tag => `<span class="tag">${tag}</span>`).join('');
+            return `
+                <div class="circuit-card bg-white rounded-lg shadow overflow-hidden" data-circuit-id="${circuit.id}">
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">${circuit.name || 'Circuit sans nom'}</h3>
+                        <p class="text-sm text-gray-600 mb-3">${circuit.description || 'Pas de description.'}</p>
+                        <div class="text-xs text-gray-500 mb-4 space-x-3">
+                            <span><i class="far fa-clock mr-1"></i> ${circuit.duration_days || '?'} jour(s)</span>
+                            <span><i class="fas fa-euro-sign mr-1"></i> ${circuit.estimated_budget_per_day ? `~${circuit.estimated_budget_per_day}€/j` : '?'}</span>
+                        </div>
+                        <div class="mb-4">${tagsHTML || '<span class="text-xs text-gray-400">Aucun tag</span>'}</div>
+                        <button class="details-btn text-sm text-purple-600 hover:text-purple-800 font-medium" data-circuit-id="${circuit.id}">
+                            Voir les détails <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                        </button>
+                        <div class="details-content mt-4 border-t pt-4 hidden">
+                            <div class="itinerary-details text-sm space-y-3 mb-4"></div>
+                            <div class="circuit-map-container"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function fetchAndDisplayCircuits(cityName) {
+            if (!supabase || !cityName) {
+                 loadingCircuits?.classList.add('hidden');
+                 errorCircuits?.classList.remove('hidden');
+                 return;
+            }
+
+            try {
+                const { data: cityData, error: cityError } = await supabase
+                    .from('cities')
+                    .select('id')
+                    .eq('name', cityName)
+                    .limit(1)
+                    .single();
+
+                if (cityError || !cityData) throw new Error(cityError?.message || 'Ville non trouvée.');
+
+                const cityId = cityData.id;
+
+                const { data: circuits, error: circuitsError } = await supabase
+                    .from('circuits')
+                    .select('*')
+                    .eq('city_id', cityId)
+                    .eq('is_public', true) // Seulement les circuits publics pour l'instant
+                    .order('created_at', { ascending: false });
+
+                if (circuitsError) throw circuitsError;
+
+                publicCircuitsList.innerHTML = ''; // Clear previous
+                if (circuits && circuits.length > 0) {
+                    circuits.forEach(circuit => {
+                        publicCircuitsList.insertAdjacentHTML('beforeend', createCircuitCardHTML(circuit));
+                        // Stocker les détails pour plus tard (plus efficace que de les mettre en data-attribute si volumineux)
+                        window[`circuit_details_${circuit.id}`] = circuit.details_json;
+                    });
+                    publicCircuitsSection?.classList.remove('hidden');
+                    setupDetailsButtonListeners(); // Attacher les listeners aux nouveaux boutons
+                } else {
+                    publicCircuitsList.innerHTML = '<p class="text-gray-500 col-span-full">Aucun circuit suggéré pour cette ville pour le moment.</p>';
+                     publicCircuitsSection?.classList.remove('hidden');
+                }
+
+                loadingCircuits?.classList.add('hidden');
+                errorCircuits?.classList.add('hidden');
+
+            } catch (error) {
+                console.error("Erreur chargement circuits:", error.message);
+                loadingCircuits?.classList.add('hidden');
+                errorCircuits?.classList.remove('hidden');
+            }
+        }
+
+         function displayCircuitDetails(circuitId, detailsContainer, mapContainer) {
+             const detailsData = window[`circuit_details_${circuitId}`];
+             if (!detailsData) {
+                 detailsContainer.innerHTML = '<p class="text-red-500 text-xs">Détails non disponibles.</p>';
+                 return;
+             }
+
+             let itineraryHTML = '';
+             let poiFetchPromises = [];
+             let poiCoords = [];
+
+             // Préparer les requêtes pour récupérer les infos POI
+             detailsData.forEach(day => {
+                 itineraryHTML += `<div class="mb-3"><strong class="block text-gray-700">Jour ${day.day}</strong>`;
+                 if (day.activities) {
+                     day.activities.forEach((activity, index) => {
+                         if (activity.poi_id) {
+                             // Marquer l'endroit où insérer les infos POI
+                             itineraryHTML += `<div id="poi-details-${circuitId}-${day.day}-${index}" class="ml-2 pl-2 border-l border-gray-200 py-1">Chargement POI...</div>`;
+                             poiFetchPromises.push(
+                                 supabase.from('pois').select('name, latitude, longitude').eq('id', activity.poi_id).limit(1).single()
+                                 .then(({ data, error }) => ({ index, day: day.day, data, error, notes: activity.notes }))
+                             );
+                         } else {
+                             itineraryHTML += `<div class="ml-2 pl-2 border-l border-gray-200 py-1">${activity.notes || 'Activité libre'}</div>`;
+                         }
+                     });
+                 }
+                 itineraryHTML += `</div>`;
+             });
+             detailsContainer.innerHTML = itineraryHTML;
+
+             // Exécuter les requêtes POI et mettre à jour le HTML + préparer la carte
+             Promise.all(poiFetchPromises).then(results => {
+                 results.forEach(result => {
+                     const elementId = `poi-details-${circuitId}-${result.day}-${result.index}`;
+                     const element = document.getElementById(elementId);
+                     if (element) {
+                         if (result.error || !result.data) {
+                             element.innerHTML = `<span class="text-red-500 text-xs">Erreur POI ID ${result.data?.id || '?'}</span> ${result.notes ? '<i>('+result.notes+')</i>' : ''}`;
+                         } else {
+                             element.innerHTML = `${result.data.name} ${result.notes ? '<i class="text-gray-500">('+result.notes+')</i>' : ''}`;
+                             if (result.data.latitude && result.data.longitude) {
+                                 poiCoords.push({ lat: result.data.latitude, lng: result.data.longitude, name: result.data.name });
+                             }
+                         }
+                     }
+                 });
+                 // Afficher la carte après avoir récupéré les POIs
+                 displayCircuitMap(circuitId, mapContainer, poiCoords);
+             });
+         }
+
+         function displayCircuitMap(circuitId, mapContainer, poiCoords) {
+             // Détruire ancienne carte si existe
+             if (circuitMaps[circuitId]) {
+                 circuitMaps[circuitId].remove();
+                 delete circuitMaps[circuitId];
+             }
+
+             if (poiCoords.length === 0 || !mapContainer) return;
+
+             mapContainer.innerHTML = `<div id="map-${circuitId}" class="circuit-map"></div>`; // Créer le div pour la carte
+             const mapDivId = `map-${circuitId}`;
+             const firstCoord = [poiCoords[0].lat, poiCoords[0].lng];
+
+             const map = L.map(mapDivId).setView(firstCoord, 13);
+             circuitMaps[circuitId] = map; // Stocker l'instance
+
+             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                 maxZoom: 19, attribution: '© OpenStreetMap'
+             }).addTo(map);
+
+             const latLngs = poiCoords.map(p => [p.lat, p.lng]);
+
+             poiCoords.forEach((poi, index) => {
+                 L.marker([poi.lat, poi.lng])
+                     .addTo(map)
+                     .bindPopup(`<b>${index + 1}. ${poi.name}</b>`);
+             });
+
+             if (latLngs.length > 1) {
+                 L.polyline(latLngs, { color: '#6B21A8', weight: 3 }).addTo(map);
+             }
+
+             map.fitBounds(latLngs, { padding: [30, 30] });
+             setTimeout(() => { map.invalidateSize(); }, 100);
+         }
+
+        function setupDetailsButtonListeners() {
+             document.querySelectorAll('.details-btn').forEach(button => {
+                 // Remove old listener before adding new one to prevent duplicates if called multiple times
+                 button.replaceWith(button.cloneNode(true));
+             });
+             // Re-select buttons after cloning
+             document.querySelectorAll('.details-btn').forEach(button => {
+                 button.addEventListener('click', function() {
+                     const circuitId = this.dataset.circuitId;
+                     const card = this.closest('.circuit-card');
+                     const detailsContent = card.querySelector('.details-content');
+                     const itineraryContainer = detailsContent.querySelector('.itinerary-details');
+                     const mapContainer = detailsContent.querySelector('.circuit-map-container');
+                     const icon = this.querySelector('i');
+
+                     const isHidden = detailsContent.classList.toggle('hidden');
+                     icon.classList.toggle('fa-chevron-down', isHidden);
+                     icon.classList.toggle('fa-chevron-up', !isHidden);
+
+                     if (!isHidden && itineraryContainer.innerHTML === '') { // Only load details once
+                         displayCircuitDetails(circuitId, itineraryContainer, mapContainer);
+                     } else if (!isHidden && circuitMaps[circuitId]) {
+                         // If map already exists, just invalidate size
+                          setTimeout(() => { if (circuitMaps[circuitId]) circuitMaps[circuitId].invalidateSize(); }, 50);
+                     }
+                 });
+             });
+         }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            currentCityName = getCityNameFromURL();
+
+            if (cityNameTitle) cityNameTitle.textContent = currentCityName || 'Inconnue';
+            if (cityNameHeader) cityNameHeader.textContent = currentCityName || 'Inconnue';
+
+            if (!currentCityName) {
+                 loadingCircuits?.classList.add('hidden');
+                 errorCircuits?.classList.remove('hidden');
+                 if (errorCircuits) errorCircuits.innerHTML = '<p>Nom de ville manquant dans l\'URL.</p>';
+            } else {
+                 if (initializeSupabase()) {
+                     supabase.auth.getSession().then(({ data: { session } }) => {
+                         updateCityPageUI(session?.user ?? null);
+                         fetchAndDisplayCircuits(currentCityName); // Fetch circuits after checking auth
+                     });
+                      supabase.auth.onAuthStateChange((_event, session) => {
+                          updateCityPageUI(session?.user ?? null);
+                          // Optionnel: rafraîchir sections utilisateur si besoin
+                      });
+                 } else {
+                      loadingCircuits?.classList.add('hidden');
+                      errorCircuits?.classList.remove('hidden');
+                      if (errorCircuits) errorCircuits.textContent = "Service d'authentification indisponible.";
+                      updateCityPageUI(null);
+                 }
+            }
+        });
+
+    </script>
+
+</body>
+</html>

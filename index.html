@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INAZERIAH - Circuits touristiques personnalisés</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+
+    <style>
+        @keyframes slideDownFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px); /* Commence 30px plus haut */
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0); /* Position finale */
+            }
+        }
+        body { animation: slideDownFadeIn 0.7s ease-out forwards; }
+        html { scroll-behavior: smooth; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+        #resultsMap { height: 400px; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); margin-bottom: 2rem; z-index: 1; }
+        .interest-tag { transition: all 0.2s; }
+        .interest-tag:hover { transform: scale(1.05); }
+        .slide-in { animation: slideIn 0.5s forwards; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        button:disabled, a.disabled { opacity: 0.7; cursor: not-allowed; pointer-events: none; }
+        .leaflet-popup-content-wrapper { border-radius: 0.375rem; }
+        .leaflet-popup-content { margin: 1rem; font-size: 0.875rem; line-height: 1.25rem; }
+        .leaflet-popup-content b { font-weight: 600; color: #374151; display: block; margin-bottom: 0.25rem; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="font-sans bg-gray-50">
+    <nav class="bg-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="index.html" class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-route text-purple-600 text-2xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-900">INAZERIAH</span>
+                    </a>
+                </div>
+                <div class="hidden md:ml-6 md:flex md:items-center md:space-x-8">
+                    <a href="#Hero" class="text-gray-900 hover:text-purple-600 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-purple-500 text-sm font-medium">Accueil</a>
+                    <a href="#personalisation" class="text-gray-500 hover:text-gray-900 hover:border-b-2 hover:border-purple-500 inline-flex items-center px-1 pt-1 text-sm font-medium">Découvrir</a>
+                    <a href="#villes" class="text-gray-500 hover:text-gray-900 hover:border-b-2 hover:border-purple-500 inline-flex items-center px-1 pt-1 text-sm font-medium">Villes</a>
+                    <a href="#contact" class="text-gray-500 hover:text-gray-900 hover:border-b-2 hover:border-purple-500 inline-flex items-center px-1 pt-1 text-sm font-medium">Contact</a>
+                    <a href="login.html" id="nav-login-link" class="hidden text-gray-500 hover:text-gray-900 inline-flex items-center px-3 py-2 rounded-md text-sm font-medium">Connexion</a>
+                    <a href="signup.html" id="nav-signup-link" class="hidden inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700">Inscription</a>
+                     <a href="#personalisation" id="nav-create-circuit-link" class="hidden ml-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                        Créer mon circuit
+                    </a>
+                    <a href="account.html" id="nav-account-link" class="hidden ml-4 text-gray-500 hover:text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">
+                        Mon Compte
+                    </a>
+                </div>
+                 <div class="-mr-2 flex items-center md:hidden">
+                    <button type="button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500" aria-controls="mobile-menu" aria-expanded="false">
+                        <span class="sr-only">Open main menu</span>
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <section id="Hero">
+        <div class="gradient-bg">
+            <div class="max-w-7xl mx-auto py-16 px-4 sm:py-24 sm:px-6 lg:px-8 text-center">
+                <h1 class="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">Découvrez des circuits uniques, créés rien que pour vous</h1>
+                <p class="mt-6 max-w-lg mx-auto text-xl text-purple-100">Notre algorithme intelligent crée des parcours touristiques personnalisés selon vos goûts, votre âge et vos centres d'intérêt.</p>
+                <div class="mt-10 flex justify-center">
+                    <div class="rounded-md shadow">
+                        <a href="#personalisation" id="hero-cta-btn" class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-purple-600 bg-white hover:bg-gray-50 md:py-4 md:text-lg md:px-10">
+                            Commencer l'aventure
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div id="personalisation" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 scroll-mt-16">
+        <div class="bg-white shadow-xl rounded-2xl overflow-hidden">
+            <div class="md:flex">
+                <form class="md:w-1/2 p-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6">Créez votre profil voyageur</h2>
+                     <div class="mb-6">
+                         <label class="block text-gray-700 text-sm font-bold mb-2" for="city">Ville de destination</label>
+                         <select id="city" name="city" class="block w-full bg-gray-100 border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
+                             <option value="">Sélectionnez une ville</option>
+                             <option value="Paris">Paris</option>
+                             <option value="Lyon">Lyon</option>
+                             <option value="Marseille">Marseille</option>
+                             <option value="Bordeaux">Bordeaux</option>
+                             <option value="Strasbourg">Strasbourg</option>
+                             <option value="Bruxelles">Bruxelles</option>
+                         </select>
+                     </div>
+                     <div class="mb-6">
+                         <label class="block text-gray-700 text-sm font-bold mb-2" for="duration">Durée du séjour</label>
+                         <select id="duration" name="duration" class="block w-full bg-gray-100 border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                             <option value="1">1 jour</option>
+                             <option value="2">2 jours</option>
+                             <option value="3" selected>3 jours</option>
+                             <option value="7">1 semaine (7 jours)</option>
+                         </select>
+                     </div>
+                      <div class="mb-6">
+                          <label class="block text-gray-700 text-sm font-bold mb-2" for="age">Tranche d'âge</label>
+                          <select id="age" name="age" class="block w-full bg-gray-100 border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                             <option>Moins de 18 ans</option>
+                             <option selected>18-25 ans</option>
+                             <option>26-35 ans</option>
+                             <option>36-50 ans</option>
+                             <option>Plus de 50 ans</option>
+                          </select>
+                     </div>
+                     <div class="mb-6">
+                         <label class="block text-gray-700 text-sm font-bold mb-2">Centres d'intérêt</label>
+                         <div class="flex flex-wrap gap-2">
+                             <button type="button" class="interest-tag bg-gray-200 hover:bg-purple-200 text-gray-800 px-3 py-1 rounded-full text-sm flex items-center"><i class="fas fa-utensils mr-1"></i> Gastronomie</button>
+                             <button type="button" class="interest-tag bg-gray-200 hover:bg-purple-200 text-gray-800 px-3 py-1 rounded-full text-sm flex items-center"><i class="fas fa-landmark mr-1"></i> Histoire</button>
+                             <button type="button" class="interest-tag bg-gray-200 hover:bg-purple-200 text-gray-800 px-3 py-1 rounded-full text-sm flex items-center"><i class="fas fa-palette mr-1"></i> Art</button>
+                             <button type="button" class="interest-tag bg-gray-200 hover:bg-purple-200 text-gray-800 px-3 py-1 rounded-full text-sm flex items-center"><i class="fas fa-leaf mr-1"></i> Nature</button>
+                             <button type="button" class="interest-tag bg-gray-200 hover:bg-purple-200 text-gray-800 px-3 py-1 rounded-full text-sm flex items-center"><i class="fas fa-camera mr-1"></i> Photographie</button>
+                             <button type="button" class="interest-tag bg-gray-200 hover:bg-purple-200 text-gray-800 px-3 py-1 rounded-full text-sm flex items-center"><i class="fas fa-shopping-bag mr-1"></i> Shopping</button>
+                         </div>
+                     </div>
+                     <div class="mb-6">
+                         <label class="block text-gray-700 text-sm font-bold mb-2" for="budget">Budget moyen par jour</label>
+                         <div class="flex items-center">
+                             <span class="mr-2">€</span>
+                             <input type="range" id="budget" name="budget" min="20" max="200" value="80" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600">
+                             <span id="budgetValue" class="ml-2 w-8 text-right">80</span> €
+                         </div>
+                     </div>
+                    <button id="generateBtn" type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300">
+                        Générer mon circuit
+                    </button>
+                    <p id="generate-login-prompt" class="text-sm text-center text-red-600 mt-4 hidden">
+                        Veuillez vous <a href="login.html" class="underline font-medium">connecter</a> ou <a href="/signup.html" class="underline font-medium">créer un compte</a> pour générer un circuit.
+                    </p>
+                </form>
+                 <div class="md:w-1/2 bg-gray-100 p-8 flex items-center justify-center">
+                     <div class="text-center"><i class="fas fa-magic text-6xl text-purple-500 mb-4"></i><h3 class="text-xl font-semibold text-gray-800">Comment ça marche ?</h3><p class="text-gray-600 mt-2">Remplissez vos préférences dans le formulaire ci-contre. Cliquez sur "Générer mon circuit" et nous créerons un itinéraire unique pour vous !</p><p class="text-gray-600 mt-4 text-sm">Votre parcours détaillé et une carte interactive apparaîtront dans la section des résultats, juste en dessous.</p></div>
+                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="resultsSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 hidden scroll-mt-16">
+         <div class="text-center mb-12"><h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">Votre circuit personnalisé</h2><p class="mt-4 max-w-2xl text-xl text-gray-500 mx-auto" id="resultsSubtitle">Voici l'itinéraire que nous avons concocté spécialement pour vous !</p></div>
+         <div class="grid md:grid-cols-3 gap-8 mb-12">
+            <div class="bg-white rounded-xl shadow-md overflow-hidden card-hover transition duration-300"><div class="p-6"><div class="flex items-center mb-4"><div class="flex-shrink-0 bg-purple-100 p-3 rounded-full"><i class="fas fa-info-circle text-purple-600 text-xl"></i></div><div class="ml-4"><h3 class="text-lg font-medium text-gray-900">Résumé du circuit</h3></div></div><div class="mt-4 space-y-2"><p class="text-gray-600"><span class="font-medium">Ville:</span> <span id="resultCity">--</span></p><p class="text-gray-600"><span class="font-medium">Durée:</span> <span id="resultDuration">--</span></p><p class="text-gray-600"><span class="font-medium">Budget moyen:</span> <span id="resultBudget">--</span></p><p class="text-gray-600"><span class="font-medium">Centres d'intérêt:</span> <span id="resultInterests">--</span></p></div></div></div>
+            <div class="bg-white rounded-xl shadow-md overflow-hidden card-hover transition duration-300"><div class="p-6"><div class="flex items-center mb-4"><div class="flex-shrink-0 bg-purple-100 p-3 rounded-full"><i class="fas fa-chart-line text-purple-600 text-xl"></i></div><div class="ml-4"><h3 class="text-lg font-medium text-gray-900">Statistiques</h3></div></div><div class="mt-4 space-y-4"><div><p class="text-sm font-medium text-gray-500">Distance totale estimée</p><p class="text-xl font-semibold text-gray-900"><span id="resultDistance">--</span> km</p></div><div><p class="text-sm font-medium text-gray-500">Lieux visités</p><p class="text-xl font-semibold text-gray-900"><span id="resultPlaces">--</span> sites</p></div><div><p class="text-sm font-medium text-gray-500">Temps de visite estimé</p><p class="text-xl font-semibold text-gray-900"><span id="resultTime">--</span>h</p></div></div></div></div>
+            <div class="bg-white rounded-xl shadow-md overflow-hidden card-hover transition duration-300"><div class="p-6"><div class="flex items-center mb-4"><div class="flex-shrink-0 bg-purple-100 p-3 rounded-full"><i class="fas fa-download text-purple-600 text-xl"></i></div><div class="ml-4"><h3 class="text-lg font-medium text-gray-900">Exportez votre circuit</h3></div></div><div class="mt-6 grid grid-cols-2 gap-4"><button class="flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"><i class="fas fa-file-pdf mr-2 text-red-500"></i> PDF</button><button class="flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"><i class="fas fa-file-excel mr-2 text-green-500"></i> Excel</button><button class="flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"><i class="fas fa-calendar-alt mr-2 text-blue-500"></i> Agenda</button><button class="flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"><i class="fas fa-map-marked-alt mr-2 text-purple-500"></i> Google Maps</button></div></div></div>
+         </div>
+         <div id="resultsMapContainer" class="mb-8 hidden"><h3 class="text-lg font-medium text-gray-900 mb-4">Carte de l'itinéraire</h3><div id="resultsMap" class="w-full"></div></div>
+         <div class="bg-white shadow rounded-lg overflow-hidden"><div class="px-6 py-4 border-b border-gray-200"><h3 class="text-lg font-medium text-gray-900">Votre itinéraire jour par jour</h3></div><div id="itineraryDays" class="divide-y divide-gray-200"><div class="p-6 text-center text-gray-500">Aucun itinéraire généré pour le moment.</div></div></div>
+    </div>
+
+    <div id="villes" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 scroll-mt-16">
+        <div class="text-center mb-12"><h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">Découvrez nos villes populaires</h2><p class="mt-4 max-w-2xl text-xl text-gray-500 mx-auto">Des circuits déjà préparés pour les destinations les plus demandées.</p></div>
+        <div class="grid md:grid-cols-3 gap-8">
+             <div class="bg-white rounded-xl shadow-md overflow-hidden card-hover transition duration-300">
+                 <div class="relative h-48 overflow-hidden"><img src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Paris" class="w-full h-full object-cover"><div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div><div class="absolute bottom-4 left-4 text-white"><h3 class="text-xl font-bold">Paris</h3><p class="text-sm">12 circuits disponibles</p></div></div>
+                 <div class="p-6"><div class="flex justify-between items-center"><span class="text-sm text-gray-500">À partir de</span><span class="text-lg font-bold text-purple-600">€45/jour</span></div><a href="city.html?city=Paris" class="block text-center mt-4 w-full bg-purple-100 hover:bg-purple-200 text-purple-600 font-medium py-2 px-4 rounded-lg transition duration-300">Voir les circuits</a></div>
+             </div>
+             <div class="bg-white rounded-xl shadow-md overflow-hidden card-hover transition duration-300">
+                 <div class="relative h-48 overflow-hidden"><img src="https://images.unsplash.com/photo-1568701559919-ef95d2d6e3fc?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Lyon" class="w-full h-full object-cover"><div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div><div class="absolute bottom-4 left-4 text-white"><h3 class="text-xl font-bold">Lyon</h3><p class="text-sm">8 circuits disponibles</p></div></div>
+                 <div class="p-6"><div class="flex justify-between items-center"><span class="text-sm text-gray-500">À partir de</span><span class="text-lg font-bold text-purple-600">€35/jour</span></div><a href="city.html?city=Lyon" class="block text-center mt-4 w-full bg-purple-100 hover:bg-purple-200 text-purple-600 font-medium py-2 px-4 rounded-lg transition duration-300">Voir les circuits</a></div>
+             </div>
+             <div class="bg-white rounded-xl shadow-md overflow-hidden card-hover transition duration-300">
+                 <div class="relative h-48 overflow-hidden"><img src="https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Marseille" class="w-full h-full object-cover"><div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div><div class="absolute bottom-4 left-4 text-white"><h3 class="text-xl font-bold">Marseille</h3><p class="text-sm">6 circuits disponibles</p></div></div>
+                 <div class="p-6"><div class="flex justify-between items-center"><span class="text-sm text-gray-500">À partir de</span><span class="text-lg font-bold text-purple-600">€40/jour</span></div><a href="city.html?city=Marseille" class="block text-center mt-4 w-full bg-purple-100 hover:bg-purple-200 text-purple-600 font-medium py-2 px-4 rounded-lg transition duration-300">Voir les circuits</a></div>
+             </div>
+             <div class="bg-white rounded-xl shadow-md overflow-hidden card-hover transition duration-300">
+                 <div class="relative h-48 overflow-hidden"><img src="https://images.unsplash.com/photo-1587791839091-d85c56da698e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Bruxelles" class="w-full h-full object-cover"><div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div><div class="absolute bottom-4 left-4 text-white"><h3 class="text-xl font-bold">Bruxelles</h3><p class="text-sm">5 circuits disponibles</p></div></div>
+                 <div class="p-6"><div class="flex justify-between items-center"><span class="text-sm text-gray-500">À partir de</span><span class="text-lg font-bold text-purple-600">€42/jour</span></div><a href="city.html?city=Bruxelles" class="block text-center mt-4 w-full bg-purple-100 hover:bg-purple-200 text-purple-600 font-medium py-2 px-4 rounded-lg transition duration-300">Voir les circuits</a></div>
+             </div>
+        </div>
+    </div>
+
+    <div class="gradient-bg py-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="text-center"><h2 class="text-3xl font-extrabold text-white sm:text-4xl">Ce que disent nos voyageurs</h2></div><div class="mt-16 grid md:grid-cols-3 gap-8"><div class="bg-white bg-opacity-10 backdrop-filter backdrop-blur-lg rounded-xl p-8 text-white shadow-lg"><div class="flex items-center mb-4"><div class="flex-shrink-0"><img class="h-10 w-10 rounded-full object-cover" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="Sophie"></div><div class="ml-4"><h3 class="text-lg font-medium">Sophie L.</h3><p class="text-sm text-purple-200">Paris, 3 jours</p></div></div><p class="mt-4 text-purple-100 text-sm">"Grâce à INAZERIAH, j'ai découvert des petits restaurants typiques que je n'aurais jamais trouvés seule. Le circuit était parfaitement adapté à mon amour de la gastronomie !"</p><div class="mt-4 flex text-yellow-300"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div></div><div class="bg-white bg-opacity-10 backdrop-filter backdrop-blur-lg rounded-xl p-8 text-white shadow-lg"><div class="flex items-center mb-4"><div class="flex-shrink-0"><img class="h-10 w-10 rounded-full object-cover" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="Thomas"></div><div class="ml-4"><h3 class="text-lg font-medium">Thomas R.</h3><p class="text-sm text-purple-200">Lyon, 2 jours</p></div></div><p class="mt-4 text-purple-100 text-sm">"En tant qu'amateur d'histoire, j'ai adoré le circuit qui m'a été proposé. Les lieux étaient bien choisis et l'ordre de visite optimisé pour gagner du temps. Je recommande !"</p><div class="mt-4 flex text-yellow-300"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i></div></div><div class="bg-white bg-opacity-10 backdrop-filter backdrop-blur-lg rounded-xl p-8 text-white shadow-lg"><div class="flex items-center mb-4"><div class="flex-shrink-0"><img class="h-10 w-10 rounded-full object-cover" src="https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" alt="Camille"></div><div class="ml-4"><h3 class="text-lg font-medium">Camille D.</h3><p class="text-sm text-purple-200">Marseille, 5 jours</p></div></div><p class="mt-4 text-purple-100 text-sm">"Voyage en famille avec des enfants de 8 et 12 ans. Le circuit proposé était parfait : des activités adaptées à leur âge sans sacrifier nos centres d'intérêt. Tout le monde était ravi !"</p><div class="mt-4 flex text-yellow-300"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div></div></div></div>
+    </div>
+
+    <div class="bg-white">
+        <div class="max-w-7xl mx-auto py-16 px-4 sm:py-24 sm:px-6 lg:px-8 text-center"><h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">Prêt à découvrir votre prochaine aventure ?</h2><p class="mt-6 max-w-lg mx-auto text-xl text-gray-500">Créez votre circuit personnalisé en moins de 2 minutes.</p><div class="mt-10 flex justify-center"><div class="rounded-md shadow"><a href="/#personalisation" id="final-cta-btn" class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 md:py-4 md:text-lg md:px-10">Commencer maintenant</a></div></div></div>
+    </div>
+
+    <footer id="contact" class="bg-gray-800 scroll-mt-16">
+        <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8"><div class="grid grid-cols-2 md:grid-cols-4 gap-8"><div><h3 class="text-white text-sm font-semibold tracking-wider uppercase mb-4">INAZERIAH</h3><p class="text-gray-300 text-sm">Créateur de circuits touristiques intelligents et personnalisés pour des voyages uniques.</p></div><div><h3 class="text-white text-sm font-semibold tracking-wider uppercase mb-4">Navigation</h3><ul class="space-y-2"><li><a href="/#Hero" class="text-gray-300 hover:text-white text-sm">Accueil</a></li><li><a href="/#personalisation" class="text-gray-300 hover:text-white text-sm">Découvrir</a></li><li><a href="/#villes" class="text-gray-300 hover:text-white text-sm">Villes</a></li><li><a href="/#contact" class="text-gray-300 hover:text-white text-sm">Contact</a></li></ul></div><div><h3 class="text-white text-sm font-semibold tracking-wider uppercase mb-4">Légal</h3><ul class="space-y-2"><li><a href="#" class="text-gray-300 hover:text-white text-sm">Confidentialité</a></li><li><a href="#" class="text-gray-300 hover:text-white text-sm">Conditions</a></li><li><a href="#" class="text-gray-300 hover:text-white text-sm">Cookies</a></li></ul></div><div><h3 class="text-white text-sm font-semibold tracking-wider uppercase mb-4">Contact</h3><ul class="space-y-2"><li class="text-gray-300 text-sm">contact@INAZERIAH.com</li><li class="text-gray-300 text-sm">+33 1 23 45 67 89</li><li class="flex space-x-4 mt-4"><a href="#" class="text-gray-400 hover:text-white"><i class="fab fa-facebook-f"></i></a><a href="#" class="text-gray-400 hover:text-white"><i class="fab fa-twitter"></i></a><a href="#" class="text-gray-400 hover:text-white"><i class="fab fa-instagram"></i></a></li></ul></div></div><div class="mt-12 border-t border-gray-700 pt-8 flex flex-col md:flex-row justify-between items-center"><p class="text-gray-400 text-sm">© 2023 INAZERIAH. Tous droits réservés.</p><div class="mt-4 md:mt-0 flex space-x-6"><a href="#" class="text-gray-400 hover:text-white text-sm">Mentions légales</a><a href="#" class="text-gray-400 hover:text-white text-sm">Politique de confidentialité</a></div></div></div>
+    </footer>
+
+    <script>
+        const SUPABASE_URL = 'https://bnqisduammnieiyoezhj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJucWlzZHVhbW1uaWVpeW9lemhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwNTY5ODgsImV4cCI6MjA1OTYzMjk4OH0.taDSBGg70T3uprXg1MkAI4SokYozTI5al6TpO8uiVPA';
+        const BACKEND_URL = 'http://127.0.0.1:5000/generate_circuit';
+
+        let supabase;
+        let currentUser = null;
+        let map = null;
+        let mapLayers = [];
+
+        const navLoginLink = document.getElementById('nav-login-link');
+        const navSignupLink = document.getElementById('nav-signup-link');
+        const navCreateCircuitLink = document.getElementById('nav-create-circuit-link');
+        const navAccountLink = document.getElementById('nav-account-link');
+        const heroCtaBtn = document.getElementById('hero-cta-btn');
+        const finalCtaBtn = document.getElementById('final-cta-btn');
+        const generateBtn = document.getElementById('generateBtn');
+        const generateLoginPrompt = document.getElementById('generate-login-prompt');
+        const resultsSection = document.getElementById('resultsSection');
+        const itineraryDays = document.getElementById('itineraryDays');
+        const personalizationForm = document.querySelector('#personalisation form');
+        const budgetSlider = document.getElementById('budget');
+        const budgetValue = document.getElementById('budgetValue');
+        const interestTags = document.querySelectorAll('.interest-tag');
+        const resultsMapContainer = document.getElementById('resultsMapContainer');
+        const resultsMapDiv = document.getElementById('resultsMap');
+
+        function initializeSupabase() {
+            try {
+                if (window.supabase && typeof window.supabase.createClient === 'function') {
+                    const { createClient } = window.supabase;
+                    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    return true;
+                } else { throw new Error("Supabase library not loaded."); }
+            } catch (e) { console.error("Supabase initialization failed:", e); return false; }
+        }
+
+        function updateUI(user) {
+            currentUser = user;
+            const isLoggedIn = !!user;
+            navLoginLink?.classList.toggle('hidden', isLoggedIn);
+            navSignupLink?.classList.toggle('hidden', isLoggedIn);
+            navCreateCircuitLink?.classList.toggle('hidden', !isLoggedIn);
+            navAccountLink?.classList.toggle('hidden', !isLoggedIn);
+            const targetHref = isLoggedIn ? '#personalisation' : 'login.html';
+            if (heroCtaBtn) heroCtaBtn.href = targetHref;
+            if (finalCtaBtn) finalCtaBtn.href = targetHref;
+            heroCtaBtn?.classList.toggle('disabled', !isLoggedIn);
+            finalCtaBtn?.classList.toggle('disabled', !isLoggedIn);
+            if (generateBtn) generateBtn.disabled = !isLoggedIn;
+            generateLoginPrompt?.classList.toggle('hidden', isLoggedIn);
+            if (!isLoggedIn) { resultsSection?.classList.add('hidden'); displayMap(null); }
+        }
+
+        function setupAuthListeners() {
+             if (!supabase) return;
+            supabase.auth.getSession().then(({ data: { session } }) => { updateUI(session?.user ?? null);
+            }).catch(error => { console.error("Error getting session:", error); updateUI(null); });
+            supabase.auth.onAuthStateChange((_event, session) => { updateUI(session?.user ?? null);
+                 if (_event === 'SIGNED_OUT' || _event === 'INITIAL_SESSION') { if (!session) { resultsSection?.classList.add('hidden'); displayMap(null); } }
+            });
+            heroCtaBtn?.addEventListener('click', (e) => { if (!currentUser) { e.preventDefault(); window.location.href = 'login.html'; } });
+            finalCtaBtn?.addEventListener('click', (e) => { if (!currentUser) { e.preventDefault(); window.location.href = 'login.html'; } });
+        }
+
+        function setupOtherListeners() {
+            budgetSlider?.addEventListener('input', function() { budgetValue.textContent = this.value; });
+            interestTags?.forEach(tag => { tag.addEventListener('click', function() { this.classList.toggle('bg-gray-200'); this.classList.toggle('bg-purple-500'); this.classList.toggle('text-gray-800'); this.classList.toggle('text-white'); }); });
+            const triggerElement = personalizationForm || generateBtn;
+            const eventType = personalizationForm ? 'submit' : 'click';
+            triggerElement?.addEventListener(eventType, handleGenerateCircuit);
+        }
+
+        function displayMap(itineraryData) {
+             if (map !== null) { map.remove(); map = null; mapLayers = []; }
+             const shouldShowMap = itineraryData && itineraryData.itinerary && itineraryData.itinerary.length > 0;
+             resultsMapContainer?.classList.toggle('hidden', !shouldShowMap);
+             if (!shouldShowMap || !resultsMapDiv) return;
+             let allLatLngs = []; let firstValidCoord = null;
+             itineraryData.itinerary.forEach(day => { day.activities?.forEach(activity => { if (activity.latitude && activity.longitude) { const latLng = [activity.latitude, activity.longitude]; allLatLngs.push(latLng); if (!firstValidCoord) firstValidCoord = latLng; } }); });
+             if (!firstValidCoord) { console.warn("No coords for map."); resultsMapContainer?.classList.add('hidden'); return; }
+             map = L.map(resultsMapDiv).setView(firstValidCoord, 13);
+             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+             const polylinePoints = [];
+             itineraryData.itinerary.forEach((day, dayIndex) => { day.activities?.forEach((activity, activityIndex) => { if (activity.latitude && activity.longitude) { const latLng = [activity.latitude, activity.longitude]; polylinePoints.push(latLng); const marker = L.marker(latLng).addTo(map); mapLayers.push(marker); marker.bindPopup(`<b>${activity.name}</b><br>Jour ${day.day}, Act. #${activityIndex + 1}<br>Arr: ~${activity.estimated_arrival}<br>Dep: ~${activity.estimated_departure}`); } }); });
+             if (polylinePoints.length > 1) { const polyline = L.polyline(polylinePoints, { color: '#6B21A8', weight: 3, opacity: 0.7 }).addTo(map); mapLayers.push(polyline); }
+             if (allLatLngs.length > 0) map.fitBounds(allLatLngs, { padding: [50, 50] });
+             setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+        }
+
+        async function handleGenerateCircuit(event) {
+            event.preventDefault();
+            if (!currentUser) { window.location.href = 'login.html'; return; }
+            if (!supabase) { console.error("Supabase client not available."); return; }
+            const selectedCity = document.getElementById('city')?.value;
+            const selectedDurationOption = document.getElementById('duration')?.selectedOptions[0];
+            const selectedDurationValue = document.getElementById('duration')?.value || selectedDurationOption?.text;
+            const selectedAge = document.getElementById('age')?.value;
+            const selectedBudget = document.getElementById('budget')?.value;
+            const currentSelectedInterests = [];
+            document.querySelectorAll('.interest-tag.bg-purple-500')?.forEach(selectedTag => { let textContent = ''; selectedTag.childNodes.forEach(node => { if (node.nodeType === Node.TEXT_NODE) textContent += node.textContent.trim(); }); if(textContent) currentSelectedInterests.push(textContent); });
+            if (!selectedCity) { alert("Veuillez sélectionner une ville."); return; }
+            const requestData = { city: selectedCity, duration: selectedDurationValue, age: selectedAge, interests: currentSelectedInterests, budget: selectedBudget };
+            if (generateBtn) { generateBtn.textContent = 'Génération en cours...'; generateBtn.disabled = true; }
+            resultsSection?.classList.add('hidden');
+            if (itineraryDays) itineraryDays.innerHTML = '<div class="p-6 text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Chargement...</div>';
+            displayMap(null);
+            try {
+                const response = await fetch(BACKEND_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestData) });
+                if (generateBtn) { generateBtn.textContent = 'Générer mon circuit'; generateBtn.disabled = !currentUser; }
+                if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.error || `Erreur HTTP ${response.status}`); }
+                const resultData = await response.json();
+                document.getElementById('resultCity').textContent = resultData.summary?.city || '--';
+                document.getElementById('resultDuration').textContent = resultData.summary?.duration || '--';
+                document.getElementById('resultBudget').textContent = resultData.summary?.budget || '--';
+                document.getElementById('resultInterests').textContent = resultData.summary?.interests || '--';
+                document.getElementById('resultPlaces').textContent = resultData.stats?.places || '--';
+                document.getElementById('resultDistance').textContent = resultData.stats?.distance_km ? resultData.stats.distance_km.toFixed(1) : '--';
+                document.getElementById('resultTime').textContent = resultData.stats?.time_hours ? resultData.stats.time_hours.toFixed(1) : '--';
+                if (itineraryDays) itineraryDays.innerHTML = '';
+                if (resultData.itinerary && resultData.itinerary.length > 0) {
+                    resultData.itinerary.forEach(day => {
+                        const dayDiv = document.createElement('div'); dayDiv.className = 'p-6';
+                        let activitiesHTML = '';
+                        if(day.activities && day.activities.length > 0) {
+                            activitiesHTML = day.activities.map((activity, activityIndex) => {
+                                const icons = {'Musée': 'fa-palette', 'Restaurant': 'fa-utensils', 'Parc': 'fa-leaf', 'Monument': 'fa-landmark', 'Monument Historique': 'fa-landmark', 'Boutique': 'fa-shopping-bag', 'Point de vue Photo': 'fa-camera', 'Café Charmant': 'fa-coffee', 'Spectacle': 'fa-theater-masks', 'Librairie Ancienne': 'fa-book-open', 'Autre': 'fa-map-marker-alt'};
+                                const colors = {'Musée': 'purple', 'Restaurant': 'red', 'Parc': 'green', 'Monument': 'blue', 'Monument Historique': 'blue', 'Boutique': 'pink', 'Point de vue Photo': 'indigo', 'Café Charmant': 'yellow', 'Spectacle': 'orange', 'Librairie Ancienne': 'teal', 'Autre': 'gray'};
+                                const icon = icons[activity.type] || icons['Autre']; const color = colors[activity.type] || colors['Autre'];
+                                return `<div class="flex items-start"><div class="flex-shrink-0 h-8 w-8 flex items-center justify-center bg-${color}-100 rounded-full mr-3 mt-1"><i class="fas ${icon} text-${color}-600 text-sm"></i></div><div class="flex-grow"><p class="text-sm font-medium text-gray-900">${activity.name}</p><p class="text-xs text-gray-500">Arr: ~${activity.estimated_arrival} (${activity.estimated_travel_minutes}m trajet) - Dep: ~${activity.estimated_departure} (${activity.visit_duration_minutes}m visite)</p></div></div>`;
+                            }).join('');
+                        } else { activitiesHTML = '<p class="text-sm text-gray-500">Aucune activité.</p>'; }
+                        dayDiv.innerHTML = `<div class="flex items-center justify-between mb-4"><h4 class="text-lg font-medium text-gray-900">Jour ${day.day}</h4></div><div class="space-y-4">${activitiesHTML}</div>`;
+                        if (itineraryDays) itineraryDays.appendChild(dayDiv);
+                    });
+                    displayMap(resultData);
+                } else {
+                     if (itineraryDays) itineraryDays.innerHTML = '<div class="p-6 text-center text-gray-500">Itinéraire non généré.</div>';
+                     displayMap(null);
+                }
+                resultsSection?.classList.remove('hidden');
+                resultsSection?.classList.remove('slide-in'); void resultsSection?.offsetWidth; resultsSection?.classList.add('slide-in');
+                resultsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (error) {
+                 console.error('Erreur génération circuit:', error);
+                 if (itineraryDays) itineraryDays.innerHTML = `<div class="p-6 text-center text-red-500">Erreur: ${error.message}.</div>`;
+                 displayMap(null);
+                 resultsSection?.classList.remove('hidden'); resultsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                 if (generateBtn) { generateBtn.textContent = 'Générer mon circuit'; generateBtn.disabled = !currentUser; }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (initializeSupabase()) {
+                setupAuthListeners();
+            } else {
+                 updateUI(null);
+                 if (generateBtn) generateBtn.disabled = true;
+                 if (generateLoginPrompt) {
+                     generateLoginPrompt.textContent = "Service auth indisponible.";
+                     generateLoginPrompt.classList.remove('hidden');
+                 }
+            }
+            setupOtherListeners();
+        });
+
+    </script>
+</body>
+</html>

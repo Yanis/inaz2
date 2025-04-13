@@ -1,0 +1,41 @@
+@keyframes slideDownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-30px); /* Commence 30px plus haut */
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0); /* Position finale */
+    }
+}
+
+
+body {
+	padding: 2rem;
+	font-family: -apple-system, BlinkMacSystemFont, "Arial", sans-serif;
+    animation: slideDownFadeIn 0.7s ease-out forwards;
+}
+
+h1 {
+	font-size: 16px;
+	margin-top: 0;
+}
+
+p {
+	color: rgb(107, 114, 128);
+	font-size: 15px;
+	margin-bottom: 10px;
+	margin-top: 5px;
+}
+
+.card {
+	max-width: 620px;
+	margin: 0 auto;
+	padding: 16px;
+	border: 1px solid lightgray;
+	border-radius: 16px;
+}
+
+.card p:last-child {
+	margin-bottom: 0;
+}
