@@ -1,0 +1,6 @@
+Flask
+python-dotenv
+supabase-py
+requests  # Si tu utilises une API externe pour les temps de trajet
+geopy     # Pour calculer les distances plus facilement
+python-dateutil # Pour parser les horaires
